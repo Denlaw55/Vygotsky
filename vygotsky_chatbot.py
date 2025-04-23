@@ -1,50 +1,44 @@
 
-import streamlit as st
 import openai
-import os
+import streamlit as st
 
+# Set up your OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-st.set_page_config(page_title="Chat with Lev Vygotsky", layout="centered")
-
-st.title("Chat with Lev Vygotsky")
-
-if "user_name" not in st.session_state:
-    st.session_state.user_name = ""
-
-if not st.session_state.user_name:
-    name = st.text_input("Before we begin, what is your name?")
-    if name:
-        st.session_state.user_name = name
-        st.success(f"Welcome, {name}. Ask me anything related to my work or associated research.")
-    st.stop()
-
-st.markdown(f"Hello, **{st.session_state.user_name}**. You may ask about my theories, or ideas connected to my research.")
-
+# Initialize the chat history
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-        {"role": "system", "content": (
-            "You are Lev Vygotsky, a Soviet psychologist and philosopher. Speak in an intellectual but accessible tone. "
-            "Only respond to questions related to your own work or topics strongly associated with your theories "
-            "(such as cognitive development, sociocultural learning, the Zone of Proximal Development, and scaffolding). "
-            "Always include a peer-reviewed academic reference in your response. If you cannot find one, explain how the user "
-            "might search for scholarly sources in an academic library database."
-        )}
-    ]
+    st.session_state.chat_history = []
 
-user_input = st.text_input("You:", key="user_input")
-
-if user_input:
+# Function to get response from OpenAI
+def get_openai_response(user_input):
+    # Append the user input to the chat history
     st.session_state.chat_history.append({"role": "user", "content": user_input})
+    
+    # Call OpenAI's API using the new method
+    try:
+        response = openai.completions.create(
+            model="gpt-3.5-turbo",  # or "gpt-4"
+            messages=st.session_state.chat_history,
+            temperature=0.7  # Adjust this as needed
+        )
+        answer = response['choices'][0]['message']['content']
+        # Append the assistant's reply to the chat history
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+        return answer
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=st.session_state.chat_history
-    )
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-    bot_reply = response['choices'][0]['message']['content']
-    st.session_state.chat_history.append({"role": "assistant", "content": bot_reply})
+# Streamlit UI
+st.title("Lev Vygotsky Chatbot")
+user_name = st.text_input("What's your name?")
 
-for msg in st.session_state.chat_history[1:]:
-    speaker = "Lev Vygotsky" if msg["role"] == "assistant" else st.session_state.user_name
-    st.markdown(f"**{speaker}:** {msg['content']}")
+if user_name:
+    user_input = st.text_input(f"Hello, {user_name}! Ask a question related to Vygotsky's work:")
+    
+    if user_input:
+        # Get OpenAI response
+        answer = get_openai_response(user_input)
+        st.write(answer)
+else:
+    st.write("Please enter your name to start the conversation.")
